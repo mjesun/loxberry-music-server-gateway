@@ -123,7 +123,7 @@ module.exports = class MusicZone {
     this._player.volume = Math.min(Math.max(+volume, 0), 100);
 
     try {
-      await this._sendPlayerCommand('POST', '/volume/' + this._volume);
+      await this._sendPlayerCommand('POST', '/volume/' + this._player.volume);
     } catch (err) {
       console.error('[ERR!] Default behavior for "volume": ' + err.message);
     }
