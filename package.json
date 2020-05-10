@@ -1,0 +1,15 @@
+{
+  "name": "loxberry-music-server-gateway",
+  "version": "1.0.0",
+  "description": "LoxBerry plugin for emulating music servers",
+  "main": "bin/service/index.js",
+  "scripts": {
+    "prettier": "prettier --write '**/*.{js,md}'",
+    "release": "node release.js"
+  },
+  "author": "Miguel Jimenez <mjesun@hotmail.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "prettier": "^1.19.1"
+  }
+}

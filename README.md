@@ -1,0 +1,220 @@
+# LoxBerry Plugin - Music Server Gateway
+
+This plugin emulates a music server into the LoxBerry, providing a way to get
+the actions that happen in the UI sent to a remote HTTP endpoint.
+
+## Motivation
+
+To enable plugin developers to create their own customizations with the music
+server, this plugin proxies you calls about things that happen in the Loxone
+UI. You receive calls by creating an HTTP server that will have to respond to
+certain calls.
+
+This plugin takes care of:
+
+- Managing the connection to the Miniserver and the Loxone UI, as well as the
+  authentication protocol.
+
+- Converts the protocol used by the UI and the Loxone Miniserver into standard,
+  HTTP calls (not all parts work the same way internally).
+
+- Publicly documenting all possibilities.
+
+## Code structure
+
+Code is architected following the conventions proposed by the LoxBerry project.
+The code is divided into the following folders:
+
+- `bin`: where the service lives. The service is made in JavaScript (Node.js).
+  service runs as a standalone server, and self restarts if something wrong
+  happens.
+
+- `config`: configuration file, read and written from the PHP frontend and from
+  the JS code.
+
+- `daemon`: contains the initialization code that is run by the LoxBerry at
+  startup, and will bring the service to live.
+
+- `icons` and `webfrontend`: contains the code used by the LoxBerry to show the
+  configuration pages of the plugin under the web UI. They are developed in PHP
+  and made generic enough so that just by editing the configuration file
+  (`data.cfg`), new fields will appear.
+
+## Service endpoints
+
+The fake server runs in port `7090`, and each Music Server created will run on a
+consecutive port. Thus the first Music Server will run in port `7091`, which
+is the default port used by Loxone Miniserver. The server contains a variety of
+endpoints (and a WebSocket) used by the Loxone Miniserver and the UI to
+communicate with it. Other endpoints worth noting are:
+
+- `/restart`: useful for restarting the service. Accepts a `code` parameter
+  through query string, with the following values:
+
+  - `0`: the service finishes cleanly.
+  - `254`: immediately restart the service.
+
+  Any other code will restart the service after 5 seconds.
+
+_All of these ports (`7090`, `7091`), etc. are for internal management and
+communication with the Loxone Miniserver, and they have nothing to do with the
+public interface exposed by this plugin. To enable you reading the actions that
+come from the Loxone UI, please keep reading._
+
+## Communication
+
+You first need to point the plugin to your HTTP server. Creating a server is
+easy in the majority of languages. For instance, in Node.js you can do:
+
+```javascript
+const http = require('http');
+
+const server = http.createServer((req, res) => {
+  console.log(req.method + ' ' + req.url);
+
+  res.writeHead(404);
+  res.end();
+});
+
+server.listen(8091);
+```
+
+You can pick any language you want; even an Apache server + PHP would do the
+trick.
+
+Once you are running your own HTTP server, you will start receiving calls.
+Those calls vary depending on the actions you perform in the UI. In general,
+you can reply with an HTTP code `404` to indicate you don't want to handle that
+particular call, and the server will do "the right thing" for you (usually
+sending back empty lists, etc).
+
+All HTTP actions issued by the plugin to your server are expected to be
+received in the shape of JSON.
+
+### Data format
+
+The music server divides the experience into zones. Each zone is identified by
+an identifier. Zones start being numbered from `1` to match Loxone's numbering.
+Each zone contains an internal status that looks like the follwoing:
+
+```javascript
+{
+  "player": {
+    "id": string, // Opaque identifier, you can pass anything you want.
+    "mode": "play" | "buffer" | "pause" | "stop",
+    "time": number, // In milliseconds.
+    "volume": number, // [0, 100] range for volume (0 = muted, 100 = maximum).
+    "repeat": 0 | 1 | 2, // Repeat mode (0 = none, 1 = track, 2 = context).
+    "shuffle: 0 | 1, // Shuffle mode (0 = not shuffled, 1 = shuffled).
+  },
+  "track": {
+    "id": string, // Opaque identifier, you can pass anything you want.
+    "title": string,
+    "album": string,
+    "artist": string,
+    "duration": number, // In milliseconds.
+    "image": string, // Usually the cover URL, but you can also pass an SVG.
+  },
+}
+```
+
+The `player.id` differs from the `track.id` in the sense that the `player` one
+represents the queue being played, while the `track` one is a particular track.
+For instance, if you were playing a playlist called "Big Hits", and the track
+playing was "Never Gonna Give You Up", `player.id` would represent "Big Hits"
+(the whole playlist), while `track.id` just the song. So, when a track finishes
+playing, `track.id` will change, but not `player.id`; until you play a new
+context from scratch.
+
+To pass an SVG as an icon, use the `data:` protocol. First base-64 encode your
+icon, then prepend: `data:image/svg+xml;base64,`.
+
+### Lists
+
+A large amount of sections of the API use lists to identify elements. Thus,
+lists have a generic interface. This interface is meant to return fragments of
+the list:
+
+```javascript
+{
+  "total": number, // Total amount of elements in the list.
+  "items": [
+    {
+      "id": string, // Opaque identifier, you can pass anything you want.
+      "title": string,
+      "image": string, // Usually the cover URL, but you can also pass an icon.
+    },
+  ],
+```
+
+Note how list and track interface naming are carefully picked, so that you can
+return a track object within an item list and fulfill its requirements. In
+fact, extra keys are ignored and do not constitute an issue.
+
+All lists follow a common interface:
+
+- `GET` `/:position`: returns the list of elements starting from the given
+  position in the `position` query parameter. The amount of items returned can
+  be picked by the implementor.
+
+- `POST` `/:position`: adds one or more items _before_ the given position. The
+  items will be passed as part of the body of the HTTP call, in the shape of a
+  JSON array. You can know which items were added by checking their `id`.
+
+- `PUT` `/:position`: replaces one or more items starting from the given
+  position.
+
+- `DELETE` `/:position/:length`: removes the items stored in place starting
+  from the position given.
+
+### Basic player control
+
+Your server can receive the following HTTP calls regarding player (zone)
+control. All of them are `POST`, except the first one:
+
+- `/zone/:zone/state`: returns the state of the zone, as described in the upper
+  section (this call is a `GET`).
+
+- `/zone/:zone/play/:contentId`: start playing on the given zone the provided
+  content.
+
+- `/zone/:zone/pause`: pause the given zone.
+
+- `/zone/:zone/time/:time`: seek to the corresponding time.
+
+- `/zone/:zone/volume/:volume`: set the volume of the given zone. Volume
+  parameters go from 0 to 100 (from mute to hightest possible volume). Volume
+  stepping (when using + or - from the UI) is controlled by the Loxone module.
+
+- `/zone/:zone/repeat/:mode`: mode can be `0` for non-repeated, `1` for
+  repeating one track, and `2` for repeating mutliple tracks.
+
+- `/zone/:zone/shuffle/:mode`: mode can be `0` for non-shuffled, and `1` for
+  shuffled playing.
+
+- `/zone/:zone/previous`: move to the previous track. The internal server
+  implements a control where touching "previous" track will send a
+  `zone/:zone/time/0` unless the current time is below 3 seconds.
+
+- `/zone/:zone/next`: move to the next track.
+
+Each of these should respond with the zone status _after_ executing the call.
+For instance, `/zone/1/pause` should respond with a `state` of `"pause"` even
+if the internal player hasn't paused yet. This enables accurate synchronization
+between the UI and the players.
+
+### Favorites
+
+- `/zone/:zone/favorites`: list interface for the zone favorites. A maximum of 8
+  is shown. While the zone UI can deal with more, the configurator gets
+  confused.
+
+- `/favorites`: list interface for the global favorites.
+
+### Other lists
+
+- `/zone/:zone/queue`: queue of tracks being played.
+
+- `/playlists`: list interface for all the existing playlists.
+
+- `/library`: list interface for the the complete library.

@@ -1,0 +1,10 @@
+{
+  "name": "service",
+  "version": "1.0.0",
+  "description": "Internal service for Loxberry Music Server Gateway",
+  "author": "Miguel Jimenez <mjesun@hotmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "websocket": "^1.0.31"
+  }
+}
