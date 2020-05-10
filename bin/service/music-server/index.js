@@ -612,6 +612,7 @@ module.exports = class MusicServer {
         return {
           type,
           slot: +start + i + 1,
+          qindex: +start + i + 1,
           isAnEmptySlot: true,
         };
       }
@@ -621,6 +622,7 @@ module.exports = class MusicServer {
       return {
         type,
         slot: start + i + 1,
+        qindex: +start + i + 1,
         audiopath: this._encodeId(item.id),
         coverurl: item.image || undefined,
         id: this._encodeId(item.id),
