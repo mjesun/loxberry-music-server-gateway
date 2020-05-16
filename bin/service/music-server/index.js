@@ -241,6 +241,9 @@ module.exports = class MusicServer {
       case /(?:^|\/)audio\/\d+\/getqueue(?:\/|$)/.test(url):
         return this._audioGetQueue(url, []);
 
+      case /(?:^|\/)audio\/\d+\/identifysource(?:\/|$)/.test(url):
+        return this._audioIdentifySource(url);
+
       case /(?:^|\/)audio\/\d+\/library\/play(?:\/|$)/.test(url):
         return this._audioLibraryPlay(url, []);
 
@@ -449,6 +452,13 @@ module.exports = class MusicServer {
     }
 
     return this._response(url, 'getroomfavs', []);
+  }
+
+  async _audioIdentifySource(url) {
+    const [, zoneId] = url.split('/');
+    const zone = this._zones[+zoneId - 1];
+
+    return this._response(url, 'identifysource', [this._getAudioState(zone)]);
   }
 
   async _audioLibraryPlay(url) {
