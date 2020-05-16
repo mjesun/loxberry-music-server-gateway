@@ -72,6 +72,9 @@ module.exports = class MusicServer {
       });
 
       connection.send('LWSS V 2.3.9.2 | ~API:1.6~');
+
+      this._pushAudioSyncEvents(this._zones);
+      this._pushAudioEvents(this._zones);
     });
 
     httpServer.listen(this._config.port);
@@ -155,12 +158,26 @@ module.exports = class MusicServer {
       return this._getAudioState(zone);
     });
 
-    const message = JSON.stringify({
+    const audioEventsMessage = JSON.stringify({
       audio_event: audioEvents,
     });
 
     this._wsConnections.forEach((connection) => {
-      connection.send(message);
+      connection.send(audioEventsMessage);
+    });
+  }
+
+  _pushAudioSyncEvents(zones) {
+    const audioSyncEvents = zones.map((zone, i) => {
+      return {players: [i + 1]};
+    });
+
+    const audioSyncEventsMessage = JSON.stringify({
+      audio_sync_event: audioSyncEvents,
+    });
+
+    this._wsConnections.forEach((connection) => {
+      connection.send(audioSyncEventsMessage);
     });
   }
 
@@ -288,6 +305,7 @@ module.exports = class MusicServer {
         usetrigger: false,
         players: this._zones.map((zone, i) => ({
           playerid: i + 1,
+          players: [{playerid: i + 1}],
           clienttype: 0,
           default_volume: zone.getVolume(),
           enabled: true,
@@ -599,18 +617,21 @@ module.exports = class MusicServer {
 
   _getAudioState(zone) {
     const repeatModes = {0: 0, 2: 1, 1: 3};
+    const playerId = this._zones.indexOf(zone) + 1;
 
     const track = zone.getTrack();
     const mode = zone.getMode();
 
     return {
-      playerid: this._zones.indexOf(zone) + 1,
+      playerid: playerId,
       album: track.album,
       artist: track.artist,
+      audiopath: this._encodeId(track.id),
       audiotype: 2,
       coverurl: track.image || '',
       duration: mode === 'buffer' ? 0 : Math.ceil(track.duration / 1000),
       mode: mode === 'buffer' ? 'play' : mode,
+      players: [{playerid: playerId}],
       plrepeat: repeatModes[zone.getRepeat()],
       plshuffle: zone.getShuffle(),
       power: 'on',
