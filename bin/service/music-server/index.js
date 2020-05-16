@@ -11,6 +11,13 @@ const headers = {
   'Content-Type': 'text/plain; charset=utf-8',
 };
 
+const errors = {
+  2: 'UNKNOWN_ERROR',
+  3: 'REDIRECT_ERROR',
+  4: 'UNIMPLEMENTED_ERROR',
+  5: 'BACKEND_ERROR',
+};
+
 module.exports = class MusicServer {
   constructor(config) {
     const zones = [];
@@ -79,8 +86,6 @@ module.exports = class MusicServer {
 
     httpServer.listen(this._config.port);
 
-    setInterval(this._pushAudioEvents.bind(this, this._zones), 4000);
-
     this._httpServer = httpServer;
     this._wsServer = wsServer;
   }
@@ -114,7 +119,12 @@ module.exports = class MusicServer {
 
           res.on('end', () => {
             if (res.statusCode !== 200) {
-              return reject(new Error('Wrong HTTP code: ' + res.statusCode));
+              const error = new Error('Wrong HTTP code: ' + res.statusCode);
+
+              error.type = errors[Math.floor(res.statusCode / 100)];
+              error.code = res.statusCode;
+
+              return reject(error);
             }
 
             try {
@@ -137,20 +147,12 @@ module.exports = class MusicServer {
     this._pushAudioEvents([zone]);
   }
 
-  _sendRoomFavChangedEvents(zones) {
-    zones.forEach((zone) => {
-      const message = JSON.stringify({
-        roomfavchanged_event: [
-          {
-            playerid: this._zones.indexOf(zone) + 1,
-          },
-        ],
-      });
+  pushAudioSyncEvent(zone) {
+    this._pushAudioSyncEvents([zone]);
+  }
 
-      this._wsConnections.forEach((connection) => {
-        connection.send(message);
-      });
-    });
+  pushQueueEvent(zone) {
+    this._pushQueueEvents([zone]);
   }
 
   _pushAudioEvents(zones) {
@@ -178,6 +180,38 @@ module.exports = class MusicServer {
 
     this._wsConnections.forEach((connection) => {
       connection.send(audioSyncEventsMessage);
+    });
+  }
+
+  _pushQueueEvents(zones) {
+    zones.forEach((zone) => {
+      const message = JSON.stringify({
+        audio_queue_event: [
+          {
+            playerid: this._zones.indexOf(zone) + 1,
+          },
+        ],
+      });
+
+      this._wsConnections.forEach((connection) => {
+        connection.send(message);
+      });
+    });
+  }
+
+  _pushRoomFavChangedEvents(zones) {
+    zones.forEach((zone) => {
+      const message = JSON.stringify({
+        roomfavchanged_event: [
+          {
+            playerid: this._zones.indexOf(zone) + 1,
+          },
+        ],
+      });
+
+      this._wsConnections.forEach((connection) => {
+        connection.send(message);
+      });
     });
   }
 
@@ -439,7 +473,19 @@ module.exports = class MusicServer {
 
     if (+zoneId > 0) {
       const zone = this._zones[+zoneId - 1];
-      const {total, items} = await zone.getQueueList().get(+start, +length);
+      let {total, items} = await zone.getQueueList().get(+start, +length);
+
+      if (total === 0) {
+        items = +start === 0 ? [zone.getTrack()] : [];
+        total = 1;
+      }
+
+      console.log({
+        id: +zoneId,
+        totalitems: total,
+        start: +start,
+        items: items.map(this._convert(2, +start)),
+      });
 
       return this._response(url, 'getqueue', [
         {
@@ -547,7 +593,7 @@ module.exports = class MusicServer {
     const zone = this._zones[+zoneId - 1];
 
     await zone.getFavoritesList().delete(+position - 1, 1);
-    this._sendRoomFavChangedEvents([zone]);
+    this._pushRoomFavChangedEvents([zone]);
 
     return this._emptyCommand(url, []);
   }
@@ -576,7 +622,7 @@ module.exports = class MusicServer {
     };
 
     await zone.getFavoritesList().replace(+position - 1, item);
-    this._sendRoomFavChangedEvents([zone]);
+    this._pushRoomFavChangedEvents([zone]);
 
     return this._emptyCommand(url, []);
   }
