@@ -27,6 +27,7 @@ module.exports = class MusicServer {
 
     this._imageStore = Object.create(null);
 
+    this._inputs = new MusicList(this, '/inputs');
     this._favorites = new MusicList(this, '/favorites');
     this._playlists = new MusicList(this, '/playlists');
     this._library = new MusicList(this, '/library');
@@ -234,7 +235,7 @@ module.exports = class MusicServer {
         return this._audioCfgGetFavorites(url);
 
       case /(?:^|\/)audio\/cfg\/getinputs(?:\/|$)/.test(url):
-        return this._emptyCommand(url, []);
+        return this._audioCfgGetInputs(url);
 
       case /(?:^|\/)audio\/cfg\/getkey(?:\/|$)/.test(url):
         return this._emptyCommand(url, [{pubkey: ''}]);
@@ -279,7 +280,10 @@ module.exports = class MusicServer {
         return this._audioIdentifySource(url);
 
       case /(?:^|\/)audio\/\d+\/library\/play(?:\/|$)/.test(url):
-        return this._audioLibraryPlay(url, []);
+        return this._audioLibraryPlay(url);
+
+      case /(?:^|\/)audio\/\d+\/linein/.test(url):
+        return this._audioLineIn(url);
 
       case /(?:^|\/)audio\/\d+\/pause(?:\/|$)/.test(url):
         return this._audioPause(url);
@@ -385,6 +389,20 @@ module.exports = class MusicServer {
         items: items.map(this._convert(5, +start)),
       },
     ]);
+  }
+
+  async _audioCfgGetInputs(url) {
+    const {total, items} = await this._inputs.get(0, +Infinity);
+
+    return this._response(
+      url,
+      'getinputs',
+      items.map((item) => ({
+        id: this._encodeId(item.id),
+        name: item.title,
+        enabled: true,
+      })),
+    );
   }
 
   async _audioCfgGetMediaFolder(url) {
@@ -512,6 +530,15 @@ module.exports = class MusicServer {
     const zone = this._zones[+zoneId - 1];
 
     zone.play(this._decodeId(id));
+
+    return this._audioCfgGetPlayersDetails('audio/cfg/getplayersdetails');
+  }
+
+  async _audioLineIn(url) {
+    const [, zoneId, id] = url.split('/');
+    const zone = this._zones[+zoneId - 1];
+
+    zone.play(this._decodeId(id.replace(/^linein/, '')));
 
     return this._audioCfgGetPlayersDetails('audio/cfg/getplayersdetails');
   }

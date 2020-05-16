@@ -217,4 +217,6 @@ between the UI and the players.
 
 - `/playlists`: list interface for all the existing playlists.
 
-- `/library`: list interface for the the complete library.
+- `/library`: list interface for the complete library.
+
+- `/inputs`: list interface for the external inputs.
