@@ -185,6 +185,9 @@ module.exports = class MusicServer {
       case /(?:^|\/)audio\/cfg\/getinputs(?:\/|$)/.test(url):
         return this._emptyCommand(url, []);
 
+      case /(?:^|\/)audio\/cfg\/getkey(?:\/|$)/.test(url):
+        return this._emptyCommand(url, [{pubkey: ''}]);
+
       case /(?:^|\/)audio\/cfg\/getmediafolder(?:\/|$)/.test(url):
         return this._audioCfgGetMediaFolder(url, []);
 
