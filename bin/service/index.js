@@ -15,6 +15,30 @@ const headers = {
 
 Error.stackTraceLimit = Infinity;
 
+(function() {
+  const oldParse = JSON.parse;
+
+  JSON.parse = function(str) {
+    try {
+      return oldParse.apply(this, arguments);
+    } catch (err) {
+      const position = +err.message.match(/\d+$/)[0];
+
+      const fragment = (str + '').slice(
+        Math.max(0, position - 16),
+        Math.min(str.length, position + 17),
+      );
+
+      const cleanStr = (str + '').replace(/[\r\n]+\s*/g, '');
+      const cleanFragment = (fragment + '').replace(/[\r\n]+\s*/g, '');
+
+      throw new Error(
+        `Could not parse JSON <${cleanStr}>: error in position ${position} (around <${cleanFragment}>)`,
+      );
+    }
+  };
+})();
+
 http
   .createServer(async (req, res) => {
     try {
