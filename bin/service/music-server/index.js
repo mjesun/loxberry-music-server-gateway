@@ -206,7 +206,7 @@ module.exports = class MusicServer {
       case /(?:^|\/)audio\/cfg\/getroomfavs\//.test(url):
         return this._audioCfgGetRoomFavs(url);
 
-      case /(?:^|\/)audio\/cfg\/getservices(?:\/|$)/.test(url):
+      case /(?:^|\/)audio\/cfg\/get(?:available)?services(?:\/|$)/.test(url):
         return this._emptyCommand(url, []);
 
       case /(?:^|\/)audio\/cfg\/getsyncedplayers(?:\/|$)/.test(url):
