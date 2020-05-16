@@ -254,6 +254,9 @@ module.exports = class MusicServer {
       case /(?:^|\/)audio\/\d+\/roomfav\/savepath\/\d+\//.test(url):
         return this._audioRoomFavSavePath(url);
 
+      case /(?:^|\/)audio\/\d+\/serviceplay\//.test(url):
+        return this._audioServicePlay(url);
+
       case /(?:^|\/)audio\/\d+\/shuffle\/\d+(?:\/|$)/.test(url):
         return this._audioShuffle(url);
 
@@ -545,6 +548,15 @@ module.exports = class MusicServer {
     this._sendRoomFavChangedEvents([zone]);
 
     return this._emptyCommand(url, []);
+  }
+
+  _audioServicePlay(url) {
+    const [, zoneId, , , , id] = url.split('/');
+    const zone = this._zones[+zoneId - 1];
+
+    zone.play(this._decodeId(id));
+
+    return this._audioCfgGetPlayersDetails('audio/cfg/getplayersdetails');
   }
 
   _audioShuffle(url) {
