@@ -629,6 +629,7 @@ module.exports = class MusicServer {
           slot: +start + i + 1,
           qindex: +start + i + 1,
           isAnEmptySlot: true,
+          name: '',
         };
       }
 
