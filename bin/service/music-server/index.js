@@ -235,6 +235,9 @@ module.exports = class MusicServer {
       case /(?:^|\/)audio\/cfg\/mac(?:\/|$)/.test(url):
         return this._audioCfgMac(url);
 
+      case /(?:^|\/)audio\/cfg\/scanstatus(?:\/|$)/.test(url):
+        return this._emptyCommand(url, [{scanning: 0}]);
+
       case /(?:^|\/)audio\/\d+\/getqueue(?:\/|$)/.test(url):
         return this._audioGetQueue(url, []);
 
