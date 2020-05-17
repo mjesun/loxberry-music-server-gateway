@@ -75,7 +75,10 @@ module.exports = class MusicZone {
     transaction.end();
 
     try {
-      await this._sendPlayerCommand('POST', id ? '/play/' + id : '/play');
+      await this._sendPlayerCommand(
+        'POST',
+        id ? '/play/' + encodeURIComponent(id) : '/play',
+      );
     } catch (err) {
       if (err.type === 'BACKEND_ERROR') {
         console.error('[ERR!] Invalid reply for "play": ' + err.message);
