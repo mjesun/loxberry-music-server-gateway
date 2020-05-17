@@ -761,7 +761,15 @@ module.exports = class MusicServer {
       '=': '',
     };
 
-    return Buffer.from(data)
+    if (typeof data !== 'string' && typeof data !== 'number') {
+      const id = JSON.stringify(data);
+
+      throw new Error(
+        'Invalid id: <' + id + '>, only strings and numbers are allowed',
+      );
+    }
+
+    return Buffer.from('' + data)
       .toString('base64')
       .replace(/[+/=]/g, (str) => table[str]);
   }
