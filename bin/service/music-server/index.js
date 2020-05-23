@@ -755,6 +755,7 @@ module.exports = class MusicServer {
 
   async _audioServicePlay(url) {
     const [, zoneId, , , , id] = url.split('/');
+    const zone = this._zones[+zoneId - 1];
     const [decodedId, position] = this._decodeId(id);
 
     await zone.play(decodedId, position);
