@@ -10,6 +10,8 @@ module.exports = class MusicZone {
     this._updateId = undefined;
     this._updateTime = NaN;
 
+    this._favoriteId = -1;
+
     this._player = {
       id: '',
       mode: 'stop',
@@ -25,6 +27,10 @@ module.exports = class MusicZone {
     this._queue = new MusicList(musicServer, this._url() + '/queue');
 
     this._getState();
+  }
+
+  getFavoriteId() {
+    return this._favoriteId;
   }
 
   getFavoritesList() {
@@ -85,8 +91,10 @@ module.exports = class MusicZone {
     }
   }
 
-  async play(id) {
+  async play(id, favoriteId) {
     const transaction = this._transaction();
+
+    this._favoriteId = favoriteId;
 
     this._track = this._getEmptyTrack();
     this._player.time = 0;
@@ -97,7 +105,7 @@ module.exports = class MusicZone {
     try {
       await this._sendPlayerCommand(
         'POST',
-        id ? '/play/' + encodeURIComponent(id) : '/play',
+        id === null ? '/play' : '/play/' + encodeURIComponent(id),
       );
     } catch (err) {
       if (err.type === 'BACKEND_ERROR') {
@@ -334,6 +342,17 @@ module.exports = class MusicZone {
     }
   }
 
+  _pushRoomFavEvent() {
+    if (!this._roomFavEventSent) {
+      this._roomFavEventSent = true;
+
+      setTimeout(() => {
+        this._musicServer.pushRoomFavEvent(this);
+        this._roomFavEventSent = false;
+      }, 25);
+    }
+  }
+
   async _sendPlayerCommand(method, url, body) {
     const data = await this._musicServer.call(method, this._url() + url, body);
     const track = data.track || this._getEmptyTrack();
@@ -350,6 +369,7 @@ module.exports = class MusicZone {
     }
 
     this._pushAudioEvent();
+    this._pushRoomFavEvent();
   }
 
   _transaction() {

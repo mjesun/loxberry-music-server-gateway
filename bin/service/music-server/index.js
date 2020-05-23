@@ -18,6 +18,14 @@ const errors = {
   5: 'BACKEND_ERROR',
 };
 
+const BASE_DELTA = 1000000;
+
+const BASE_FAVORITE_ZONE = 0 * BASE_DELTA;
+const BASE_FAVORITE_GLOBAL = 1 * BASE_DELTA;
+const BASE_PLAYLIST = 2 * BASE_DELTA;
+const BASE_LIBRARY = 3 * BASE_DELTA;
+const BASE_INPUT = 4 * BASE_DELTA;
+
 module.exports = class MusicServer {
   constructor(config) {
     const zones = [];
@@ -81,8 +89,9 @@ module.exports = class MusicServer {
 
       connection.send('LWSS V 2.3.9.2 | ~API:1.6~');
 
-      this._pushAudioSyncEvents(this._zones);
       this._pushAudioEvents(this._zones);
+      this._pushAudioSyncEvents(this._zones);
+      this._pushRoomFavEvents(this._zones);
     });
 
     httpServer.listen(this._config.port);
@@ -152,6 +161,10 @@ module.exports = class MusicServer {
     this._pushAudioSyncEvents([zone]);
   }
 
+  pushRoomFavEvent(zone) {
+    this._pushRoomFavEvents([zone]);
+  }
+
   pushQueueEvent(zone) {
     this._pushQueueEvents([zone]);
   }
@@ -184,12 +197,13 @@ module.exports = class MusicServer {
     });
   }
 
-  _pushQueueEvents(zones) {
+  _pushRoomFavEvents(zones) {
     zones.forEach((zone) => {
       const message = JSON.stringify({
-        audio_queue_event: [
+        roomfav_event: [
           {
-            playerid: this._zones.indexOf(zone) + 1,
+            'playerid': this._zones.indexOf(zone) + 1,
+            'playing slot': zone.getFavoriteId(),
           },
         ],
       });
@@ -204,6 +218,22 @@ module.exports = class MusicServer {
     zones.forEach((zone) => {
       const message = JSON.stringify({
         roomfavchanged_event: [
+          {
+            playerid: this._zones.indexOf(zone) + 1,
+          },
+        ],
+      });
+
+      this._wsConnections.forEach((connection) => {
+        connection.send(message);
+      });
+    });
+  }
+
+  _pushQueueEvents(zones) {
+    zones.forEach((zone) => {
+      const message = JSON.stringify({
+        audio_queue_event: [
           {
             playerid: this._zones.indexOf(zone) + 1,
           },
@@ -277,6 +307,9 @@ module.exports = class MusicServer {
         url,
       ):
         return this._audioAlarm(url);
+
+      case /(?:^|\/)audio\/\d+\/favoriteplay(?:\/|$)/.test(url):
+        return this._audioFavoritePlay(url, []);
 
       case /(?:^|\/)audio\/\d+\/getqueue(?:\/|$)/.test(url):
         return this._audioGetQueue(url, []);
@@ -391,7 +424,7 @@ module.exports = class MusicServer {
       {
         totalitems: total,
         start: +start,
-        items: items.map(this._convert(5, +start)),
+        items: items.map(this._convert(5, BASE_FAVORITE_GLOBAL, +start)),
       },
     ]);
   }
@@ -402,8 +435,8 @@ module.exports = class MusicServer {
     return this._response(
       url,
       'getinputs',
-      items.map((item) => ({
-        id: this._encodeId(item.id),
+      items.map((item, i) => ({
+        id: this._encodeId(item.id, BASE_INPUT + i),
         name: item.title,
         enabled: true,
       })),
@@ -419,7 +452,7 @@ module.exports = class MusicServer {
         id: +requestId,
         totalitems: total,
         start: +start,
-        items: items.map(this._convert(2, +start)),
+        items: items.map(this._convert(2, BASE_LIBRARY, +start)),
       },
     ]);
   }
@@ -445,7 +478,7 @@ module.exports = class MusicServer {
         id: +requestId,
         totalitems: total,
         start: +start,
-        items: items.map(this._convert(3, +start)),
+        items: items.map(this._convert(3, BASE_PLAYLIST, +start)),
       },
     ]);
   }
@@ -462,12 +495,22 @@ module.exports = class MusicServer {
           id: +zoneId,
           totalitems: total,
           start: +start,
-          items: items.map(this._convert(4, +start)),
+          items: items.map(this._convert(4, BASE_FAVORITE_ZONE, +start)),
         },
       ]);
     }
 
     return this._response(url, 'getroomfavs', []);
+  }
+
+  async _audioFavoritePlay(url) {
+    const [, zoneId, , id] = url.split('/');
+    const zone = this._zones[+zoneId - 1];
+    const [decodedId, position] = this._decodeId(id);
+
+    await zone.play(decodedId, position);
+
+    return this._audioCfgGetPlayersDetails('audio/cfg/getplayersdetails');
   }
 
   _audioCfgGetSyncedPlayers(url) {
@@ -522,19 +565,12 @@ module.exports = class MusicServer {
         total = 1;
       }
 
-      console.log({
-        id: +zoneId,
-        totalitems: total,
-        start: +start,
-        items: items.map(this._convert(2, +start)),
-      });
-
       return this._response(url, 'getqueue', [
         {
           id: +zoneId,
           totalitems: total,
           start: +start,
-          items: items.map(this._convert(2, +start)),
+          items: items.map(this._convert(2, 0, +start)),
         },
       ]);
     }
@@ -552,8 +588,9 @@ module.exports = class MusicServer {
   async _audioLibraryPlay(url) {
     const [, zoneId, , , id] = url.split('/');
     const zone = this._zones[+zoneId - 1];
+    const [decodedId, position] = this._decodeId(id);
 
-    zone.play(this._decodeId(id));
+    await zone.play(decodedId, position);
 
     return this._audioCfgGetPlayersDetails('audio/cfg/getplayersdetails');
   }
@@ -561,8 +598,9 @@ module.exports = class MusicServer {
   async _audioLineIn(url) {
     const [, zoneId, id] = url.split('/');
     const zone = this._zones[+zoneId - 1];
+    const [decodedId, position] = this._decodeId(id.replace(/^linein/, ''));
 
-    zone.play(this._decodeId(id.replace(/^linein/, '')));
+    await zone.play(decodedId, position);
 
     return this._audioCfgGetPlayersDetails('audio/cfg/getplayersdetails');
   }
@@ -576,24 +614,25 @@ module.exports = class MusicServer {
     return this._audioCfgGetPlayersDetails('audio/cfg/getplayersdetails');
   }
 
-  _audioPlay(url) {
+  async _audioPlay(url) {
     const [, zoneId] = url.split('/');
     const zone = this._zones[+zoneId - 1];
 
     if (zone.getMode() === 'stop') {
-      zone.play('');
+      await zone.play(null, -1);
     } else {
-      zone.resume();
+      await zone.resume();
     }
 
     return this._audioCfgGetPlayersDetails('audio/cfg/getplayersdetails');
   }
 
-  _audioPlaylist(url) {
+  async _audioPlaylist(url) {
     const [, zoneId, , , id] = url.split('/');
     const zone = this._zones[+zoneId - 1];
+    const [decodedId, position] = this._decodeId(id);
 
-    zone.play(this._decodeId(id));
+    await zone.play(decodedId, position);
 
     return this._audioCfgGetPlayersDetails('audio/cfg/getplayersdetails');
   }
@@ -656,7 +695,9 @@ module.exports = class MusicServer {
     const favorites = await zone.getFavoritesList().get(+position - 1, 1);
     const id = favorites.items[0].id;
 
-    await zone.play(id);
+    await zone.play(id, +position - 1);
+
+    this._pushRoomFavEvents([zone]);
 
     return this._audioCfgGetPlayersDetails('audio/cfg/getplayersdetails');
   }
@@ -664,7 +705,7 @@ module.exports = class MusicServer {
   async _audioRoomFavSavePath(url) {
     const [, zoneId, , , position, id, title] = url.split('/');
     const zone = this._zones[+zoneId - 1];
-    const decodedId = this._decodeId(id);
+    const [decodedId] = this._decodeId(id);
 
     const item = {
       id: decodedId,
@@ -678,11 +719,11 @@ module.exports = class MusicServer {
     return this._emptyCommand(url, []);
   }
 
-  _audioServicePlay(url) {
+  async _audioServicePlay(url) {
     const [, zoneId, , , , id] = url.split('/');
-    const zone = this._zones[+zoneId - 1];
+    const [decodedId, position] = this._decodeId(id);
 
-    zone.play(this._decodeId(id));
+    await zone.play(decodedId, position);
 
     return this._audioCfgGetPlayersDetails('audio/cfg/getplayersdetails');
   }
@@ -736,7 +777,7 @@ module.exports = class MusicServer {
       playerid: playerId,
       album: track.album,
       artist: track.artist,
-      audiopath: this._encodeId(track.id),
+      audiopath: this._encodeId(track.id, 0),
       audiotype: 2,
       coverurl: track.image || '',
       duration: mode === 'buffer' ? 0 : Math.ceil(track.duration / 1000),
@@ -752,7 +793,7 @@ module.exports = class MusicServer {
     };
   }
 
-  _convert(type, start) {
+  _convert(type, base, start) {
     return (item, i) => {
       if (!item) {
         return {
@@ -770,15 +811,15 @@ module.exports = class MusicServer {
         type,
         slot: start + i + 1,
         qindex: +start + i + 1,
-        audiopath: this._encodeId(item.id),
+        audiopath: this._encodeId(item.id, base + i),
         coverurl: item.image || undefined,
-        id: this._encodeId(item.id),
+        id: this._encodeId(item.id, base + i),
         name: item.title,
       };
     };
   }
 
-  _encodeId(data) {
+  _encodeId(data, offset) {
     const table = {
       '+': '-',
       '/': '_',
@@ -793,7 +834,7 @@ module.exports = class MusicServer {
       );
     }
 
-    return Buffer.from('' + data)
+    return Buffer.from(JSON.stringify([data, offset]))
       .toString('base64')
       .replace(/[+/=]/g, (str) => table[str]);
   }
@@ -804,10 +845,12 @@ module.exports = class MusicServer {
       '_': '/',
     };
 
-    return Buffer.from(
-      data.replace(/[-_]/g, (str) => table[str]),
-      'base64',
-    ).toString();
+    return JSON.parse(
+      Buffer.from(
+        data.replace(/[-_]/g, (str) => table[str]),
+        'base64',
+      ),
+    );
   }
 
   _response(url, name, result) {
