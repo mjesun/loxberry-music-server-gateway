@@ -273,6 +273,11 @@ module.exports = class MusicServer {
       case /(?:^|\/)audio\/cfg\/scanstatus(?:\/|$)/.test(url):
         return this._emptyCommand(url, [{scanning: 0}]);
 
+      case /(?:^|\/)audio\/\d+\/(?:alarm|bell|firealarm|wecker)(?:\/|$)/.test(
+        url,
+      ):
+        return this._audioAlarm(url);
+
       case /(?:^|\/)audio\/\d+\/getqueue(?:\/|$)/.test(url):
         return this._audioGetQueue(url, []);
 
@@ -483,6 +488,25 @@ module.exports = class MusicServer {
         macaddress: this._mac(),
       },
     ]);
+  }
+
+  async _audioAlarm(url) {
+    const [, zoneId, type, volume] = url.split('/');
+    const zone = this._zones[+zoneId - 1];
+
+    const alarms = {
+      alarm: 'general',
+      firealarm: 'fire',
+      wecker: 'clock',
+      bell: 'bell',
+    };
+
+    await zone.alarm(
+      alarms[type],
+      volume === undefined ? zone.getVolume() : +volume,
+    );
+
+    return this._audioCfgGetPlayersDetails('audio/cfg/getplayersdetails');
   }
 
   async _audioGetQueue(url) {
