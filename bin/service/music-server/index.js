@@ -490,12 +490,16 @@ module.exports = class MusicServer {
       const zone = this._zones[+zoneId - 1];
       const {total, items} = await zone.getFavoritesList().get(+start, +length);
 
+      const mappedItems = items
+        .map(this._convert(4, BASE_FAVORITE_ZONE, +start))
+        .filter((item) => !item.isAnEmptySlot);
+
       return this._response(url, 'getroomfavs', [
         {
           id: +zoneId,
-          totalitems: total,
+          totalitems: mappedItems.length,
           start: +start,
-          items: items.map(this._convert(4, BASE_FAVORITE_ZONE, +start)),
+          items: mappedItems,
         },
       ]);
     }
@@ -575,7 +579,7 @@ module.exports = class MusicServer {
       ]);
     }
 
-    return this._response(url, 'getroomfavs', []);
+    return this._response(url, 'getqueue', []);
   }
 
   async _audioIdentifySource(url) {
