@@ -416,7 +416,19 @@ module.exports = class MusicServer {
   }
 
   async _audioCfgFavoritesAddPath(url) {
-    // ????
+    const [name, id] = url.split('/').slice(-2);
+    const playlists = this._favorites;
+    const [decodedId] = this._decodeId(id);
+
+    const {total} = await playlists.get(0, 0);
+
+    await this._favorites.insert(total, {
+      id: decodedId,
+      title: decodeURIComponent(name),
+      image: this._imageStore[decodedId],
+    });
+
+    return this._emptyCommand(url, []);
   }
 
   async _audioCfgGetFavorites(url) {
@@ -561,9 +573,9 @@ module.exports = class MusicServer {
 
     const alarms = {
       alarm: 'general',
+      bell: 'bell',
       firealarm: 'fire',
       wecker: 'clock',
-      bell: 'bell',
     };
 
     await zone.alarm(

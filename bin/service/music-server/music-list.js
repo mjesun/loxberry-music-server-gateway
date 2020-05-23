@@ -15,7 +15,7 @@ module.exports = class List {
 
   async get(start, length) {
     const items = this._items;
-    const end = start + length;
+    const end = start + (length || 1);
 
     while (items.length < this._total && items.length < end) {
       await this._fetch(items.length);
