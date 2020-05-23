@@ -157,9 +157,10 @@ All lists follow a common interface:
   position in the `position` query parameter. The amount of items returned can
   be picked by the implementor.
 
-- `POST` `/:position`: adds one or more items _before_ the given position. The
-  items will be passed as part of the body of the HTTP call, in the shape of a
-  JSON array. You can know which items were added by checking their `id`.
+- `POST` `/:position`: adds one or more items _before_ the given position. In
+  other words, the position passed is the one that the first new item will occupy.
+  Items will be passed as part of the body of the HTTP call, in the shape of
+  a JSON array. You can know which items were added by checking their `id`.
 
 - `PUT` `/:position`: replaces one or more items starting from the given
   position.

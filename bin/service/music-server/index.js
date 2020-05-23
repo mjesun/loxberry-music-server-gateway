@@ -108,7 +108,7 @@ module.exports = class MusicServer {
         ? JSON.stringify(body, null, 2)
         : '';
 
-    console.log('[CALL] Calling ' + method + ' to ' + url);
+    console.log('--> [CALL] Calling ' + method + ' to ' + url);
 
     return new Promise((resolve, reject) => {
       const req = http.request(
@@ -294,11 +294,14 @@ module.exports = class MusicServer {
       case /(?:^|\/)audio\/cfg\/getsyncedplayers(?:\/|$)/.test(url):
         return this._audioCfgGetSyncedPlayers(url);
 
-      case /(?:^|\/)audio\/cfg\/iamaminiserver\//.test(url):
+      case /(?:^|\/)audio\/cfg\/iamaminiserver(?:done)?\//.test(url):
         return this._audioCfgIAmAMiniserver(url);
 
       case /(?:^|\/)audio\/cfg\/mac(?:\/|$)/.test(url):
         return this._audioCfgMac(url);
+
+      case /(?:^|\/)audio\/cfg\/playlist\/create(?:\/|$)/.test(url):
+        return this._audioCfgPlaylistCreate(url);
 
       case /(?:^|\/)audio\/cfg\/scanstatus(?:\/|$)/.test(url):
         return this._emptyCommand(url, [{scanning: 0}]);
@@ -535,6 +538,21 @@ module.exports = class MusicServer {
         macaddress: this._mac(),
       },
     ]);
+  }
+
+  async _audioCfgPlaylistCreate(url) {
+    const title = decodeURIComponent(url.split('/').pop());
+    const playlists = this._playlists;
+
+    const {total} = await playlists.get(0, 0);
+
+    await this._playlists.insert(total, {
+      id: null,
+      title,
+      image: null,
+    });
+
+    return this._emptyCommand(url, []);
   }
 
   async _audioAlarm(url) {
