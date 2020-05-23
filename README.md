@@ -198,6 +198,10 @@ control. All of them are `POST`, except the first one:
 
 - `/zone/:zone/next`: move to the next track.
 
+- `/zone/:zone/alarm/:type/:volume`: an alarm has been requested to play. Type
+  can be one of `general`, `bell`, `clock` or `fire`. Volume establishes at
+  what volume it has to be played.
+
 Each of these should respond with the zone status _after_ executing the call.
 For instance, `/zone/1/pause` should respond with a `state` of `"pause"` even
 if the internal player hasn't paused yet. This enables accurate synchronization
@@ -220,3 +224,37 @@ between the UI and the players.
 - `/library`: list interface for the complete library.
 
 - `/inputs`: list interface for the external inputs.
+
+## Favorite identification
+
+The music zone module contains an `AQs` output that informs about the favorite
+being played. This output is (ab)used by the gateway, to provide information
+not only about the favorite position being played, but also about other sources
+of data. The number being output is formed in the following way:
+
+```
+SPPPPPP
+```
+
+- `S`: this is the source identifier. The following sources are recognized:
+
+  - `0`: unknown source is playing (e.g. playback started from another origin).
+  - `1`: zone favorite playing.
+  - `2`: global favorite playing.
+  - `3`: playlist playing.
+  - `4`: library item playing.
+  - `5`: external input playing.
+
+- `PPPPPP`: this is the position identifier, which ranges from 0 to 999,999
+  items. Behavior for lists over a million elements is undetermined.
+
+Remember all indices are 0-based; so playing the third zone favorite will be
+identified as `1000002`. You can unroll this information by using a "Divide"
+and "Modulo" blocks:
+
+![AQs output](./docs/AQs-output.png)
+
+You will need to make both `AI2` inputs to contain the static value `1000000`
+(one milion). You will then get the `S` value in the `AQ` output of the
+"Divide" block, and the `PPPPPP` value in the `AQ` output of the "Modulo"
+block.

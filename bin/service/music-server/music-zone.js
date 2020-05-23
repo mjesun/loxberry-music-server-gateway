@@ -10,7 +10,7 @@ module.exports = class MusicZone {
     this._updateId = undefined;
     this._updateTime = NaN;
 
-    this._favoriteId = -1;
+    this._favoriteId = 0;
 
     this._player = {
       id: '',

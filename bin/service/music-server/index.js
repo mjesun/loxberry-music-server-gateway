@@ -20,11 +20,11 @@ const errors = {
 
 const BASE_DELTA = 1000000;
 
-const BASE_FAVORITE_ZONE = 0 * BASE_DELTA;
-const BASE_FAVORITE_GLOBAL = 1 * BASE_DELTA;
-const BASE_PLAYLIST = 2 * BASE_DELTA;
-const BASE_LIBRARY = 3 * BASE_DELTA;
-const BASE_INPUT = 4 * BASE_DELTA;
+const BASE_FAVORITE_ZONE = 1 * BASE_DELTA;
+const BASE_FAVORITE_GLOBAL = 2 * BASE_DELTA;
+const BASE_PLAYLIST = 3 * BASE_DELTA;
+const BASE_LIBRARY = 4 * BASE_DELTA;
+const BASE_INPUT = 5 * BASE_DELTA;
 
 module.exports = class MusicServer {
   constructor(config) {
@@ -619,7 +619,7 @@ module.exports = class MusicServer {
     const zone = this._zones[+zoneId - 1];
 
     if (zone.getMode() === 'stop') {
-      await zone.play(null, -1);
+      await zone.play(null, 0);
     } else {
       await zone.resume();
     }
@@ -695,7 +695,7 @@ module.exports = class MusicServer {
     const favorites = await zone.getFavoritesList().get(+position - 1, 1);
     const id = favorites.items[0].id;
 
-    await zone.play(id, +position - 1);
+    await zone.play(id, BASE_FAVORITE_ZONE + (+position - 1));
 
     this._pushRoomFavEvents([zone]);
 
