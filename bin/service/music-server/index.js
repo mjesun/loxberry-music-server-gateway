@@ -404,15 +404,37 @@ module.exports = class MusicServer {
     ]);
   }
 
-  _audioCfgEqualizer(url) {
-    const playerId = +url.split('/').pop();
+  async _audioCfgEqualizer(url) {
+    const [, , , zoneId, config] = url.split('/');
+    const zone = this._zones[+zoneId - 1];
+    const bands = config && config.split(',').map(Number);
+    let value;
 
-    return this._response(url, 'equalizer', [
+    if (+zoneId <= 0) {
+      value = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    } else if (config === undefined) {
+      value = await zone.getEqualizer();
+    } else {
+      value = (await zone.equalizer(bands)) || bands;
+    }
+
+    // The Loxone Miniserver expects floats in the response, even when the
+    // number is an integer. JSON.stringify can't generate this format so we
+    // have to manually stringify it.
+    return `
       {
-        playerid: playerId,
-        equalizer: 'default',
-      },
-    ]);
+        "equalizer_result": [
+          {
+            "playerid": ${+zoneId},
+
+            "equalizer": {
+              ${value.map((band, i) => `"B${i}": ${band.toFixed(1)}`).join(',')}
+            }
+          }
+        ],
+        "command": "${url}"
+      }
+    `;
   }
 
   async _audioCfgFavoritesAddPath(url) {

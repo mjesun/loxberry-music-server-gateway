@@ -29,6 +29,38 @@ module.exports = class MusicZone {
     this._getState();
   }
 
+  async getEqualizer() {
+    try {
+      const equalizer = await this._musicServer.call(
+        'GET',
+        this._url() + '/equalizer',
+      );
+
+      if (
+        !Array.isArray(equalizer) ||
+        equalizer.some((band) => typeof band !== 'number')
+      ) {
+        const error = new Error(
+          'Invalid equalizer format: needs to be an array of 10 numbers',
+        );
+
+        error.type = 'BACKEND_ERROR';
+
+        throw error;
+      }
+
+      return equalizer;
+    } catch (err) {
+      if (err.type === 'BACKEND_ERROR') {
+        console.error('[ERR!] Invalid reply for "play": ' + err.message);
+      } else {
+        console.error('[ERR!] Default behavior for "play": ' + err.message);
+      }
+
+      return [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    }
+  }
+
   getFavoriteId() {
     return this._favoriteId;
   }
@@ -87,6 +119,20 @@ module.exports = class MusicZone {
       } else {
         console.error('[ERR!] Default behavior for "alarm": ' + err.message);
         this._setMode('play');
+      }
+    }
+  }
+
+  async equalizer(bands) {
+    try {
+      return await this._sendPlayerCommand('PUT', '/equalizer', bands);
+    } catch (err) {
+      if (err.type === 'BACKEND_ERROR') {
+        console.error('[ERR!] Invalid reply for "equalizer": ' + err.message);
+      } else {
+        console.error(
+          '[ERR!] Default behavior for "equalizer": ' + err.message,
+        );
       }
     }
   }

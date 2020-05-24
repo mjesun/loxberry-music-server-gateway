@@ -199,9 +199,16 @@ control. All of them are `POST`, except the first one:
 
 - `/zone/:zone/next`: move to the next track.
 
+### Advanced player control
+
+- `/equalizer`: used to set and retrieve the configuration for the equalizer.
+  The format is returned in a 10-band ISO compliant array, where each value is
+  within a `[-10, +10]` range. To get the setting the verb used is a `GET`; and
+  to update it, a `PUT`.
+
 - `/zone/:zone/alarm/:type/:volume`: an alarm has been requested to play. Type
   can be one of `general`, `bell`, `clock` or `fire`. Volume establishes at
-  what volume it has to be played.
+  what volume it has to be played. Expected to obtain back the player state.
 
 Each of these should respond with the zone status _after_ executing the call.
 For instance, `/zone/1/pause` should respond with a `state` of `"pause"` even
