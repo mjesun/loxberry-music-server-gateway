@@ -4,6 +4,7 @@ module.exports = class List {
   constructor(musicServer, url) {
     this._musicServer = musicServer;
     this._url = url;
+    this._last = Promise.resolve();
 
     this.reset();
   }
@@ -18,7 +19,16 @@ module.exports = class List {
     const end = start + (length || 1);
 
     while (items.length < this._total && items.length < end) {
-      await this._fetch(items.length);
+      let chunk = {items: [], total: 0};
+
+      try {
+        chunk = await this._call('GET', this._url + '/' + items.length);
+      } catch (err) {
+        console.error('[ERR!] Could not fetch list fragment: ' + err.message);
+      }
+
+      this._items.splice(items.length, Infinity, ...chunk.items);
+      this._total = chunk.total;
     }
 
     return {
@@ -28,36 +38,38 @@ module.exports = class List {
   }
 
   async insert(position, ...items) {
-    await this._musicServer.call('POST', this._url + '/' + position, items);
+    try {
+      await this._call('POST', this._url + '/' + position, items);
+    } catch (err) {
+      console.error('[ERR!] Could not insert list fragment: ' + err.message);
+    }
 
     this.reset();
   }
 
   async replace(position, ...items) {
-    await this._musicServer.call('PUT', this._url + '/' + position, items);
+    try {
+      await this._call('PUT', this._url + '/' + position, items);
+    } catch (err) {
+      console.error('[ERR!] Could not replace list fragment: ' + err.message);
+    }
 
     this.reset();
   }
 
   async delete(position, length) {
-    await this._musicServer.call(
-      'DELETE',
-      this._url + '/' + position + '/' + length,
-    );
+    try {
+      await this._call('DELETE', this._url + '/' + position + '/' + length);
+    } catch (err) {
+      console.error('[ERR!] Could not delete list fragment: ' + err.message);
+    }
 
     this.reset();
   }
 
-  async _fetch(start) {
-    let chunk = {items: [], total: 0};
+  _call() {
+    const callback = () => this._musicServer.call(...arguments);
 
-    try {
-      chunk = await this._musicServer.call('GET', this._url + '/' + start);
-    } catch (err) {
-      console.error('[ERR!] Could not fetch list fragment: ' + err.message);
-    }
-
-    this._items.splice(start, Infinity, ...chunk.items);
-    this._total = chunk.total;
+    return (this._last = this._last.then(callback, callback));
   }
 };

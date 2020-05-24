@@ -297,6 +297,12 @@ module.exports = class MusicServer {
       case /(?:^|\/)audio\/cfg\/iamaminiserver(?:done)?\//.test(url):
         return this._audioCfgIAmAMiniserver(url);
 
+      case /(?:^|\/)audio\/cfg\/input\/[^\/]+\/rename\//.test(url):
+        return this._audioCfgInputRename(url);
+
+      case /(?:^|\/)audio\/cfg\/input\/[^\/]+\/type\//.test(url):
+        return this._audioCfgInputType(url);
+
       case /(?:^|\/)audio\/cfg\/mac(?:\/|$)/.test(url):
         return this._audioCfgMac(url);
 
@@ -469,12 +475,26 @@ module.exports = class MusicServer {
   async _audioCfgGetInputs(url) {
     const {total, items} = await this._inputs.get(0, +Infinity);
 
+    const icons = Object.assign(Object.create(null), {
+      'line-in': 0,
+      'cd-player': 1,
+      'computer': 2,
+      'i-mac': 3,
+      'i-pod': 4,
+      'mobile': 5,
+      'radio': 6,
+      'tv': 7,
+      'turntable': 8,
+    });
+
     return this._response(
       url,
       'getinputs',
       items.map((item, i) => ({
         id: this._encodeId(item.id, BASE_INPUT + i),
         name: item.title,
+        coverurl: item.image in icons ? undefined : item.image,
+        icontype: icons[item.image] || 0,
         enabled: true,
       })),
     );
@@ -547,9 +567,9 @@ module.exports = class MusicServer {
   async _audioFavoritePlay(url) {
     const [, zoneId, , id] = url.split('/');
     const zone = this._zones[+zoneId - 1];
-    const [decodedId, position] = this._decodeId(id);
+    const [decodedId, favoriteId] = this._decodeId(id);
 
-    await zone.play(decodedId, position);
+    await zone.play(decodedId, favoriteId);
 
     return this._audioCfgGetPlayersDetails('audio/cfg/getplayersdetails');
   }
@@ -572,6 +592,42 @@ module.exports = class MusicServer {
         macaddress: this._mac(),
       },
     ]);
+  }
+
+  async _audioCfgInputRename(url) {
+    const [, , , id, , title] = url.split('/');
+    const [decodedId, favoriteId] = this._decodeId(id);
+    const position = favoriteId % BASE_DELTA;
+    const item = (await this._inputs.get(position, 1)).items[0];
+
+    item.title = decodeURIComponent(title);
+    await this._inputs.replace(position, [item]);
+
+    return this._emptyCommand(url, []);
+  }
+
+  async _audioCfgInputType(url) {
+    const [, , , id, , icon] = url.split('/');
+    const [decodedId, favoriteId] = this._decodeId(id);
+    const position = favoriteId % BASE_DELTA;
+    const item = (await this._inputs.get(position, 1)).items[0];
+
+    const icons = [
+      `line-in`,
+      `cd-player`,
+      `computer`,
+      `i-mac`,
+      `i-pod`,
+      `mobile`,
+      `radio`,
+      `tv`,
+      `turntable`,
+    ];
+
+    item.image = icons[icon];
+    await this._inputs.replace(position, [item]);
+
+    return this._emptyCommand(url, []);
   }
 
   async _audioCfgPlaylistCreate(url) {
@@ -644,9 +700,9 @@ module.exports = class MusicServer {
   async _audioLibraryPlay(url) {
     const [, zoneId, , , id] = url.split('/');
     const zone = this._zones[+zoneId - 1];
-    const [decodedId, position] = this._decodeId(id);
+    const [decodedId, favoriteId] = this._decodeId(id);
 
-    await zone.play(decodedId, position);
+    await zone.play(decodedId, favoriteId);
 
     return this._audioCfgGetPlayersDetails('audio/cfg/getplayersdetails');
   }
@@ -654,9 +710,9 @@ module.exports = class MusicServer {
   async _audioLineIn(url) {
     const [, zoneId, id] = url.split('/');
     const zone = this._zones[+zoneId - 1];
-    const [decodedId, position] = this._decodeId(id.replace(/^linein/, ''));
+    const [decodedId, favoriteId] = this._decodeId(id.replace(/^linein/, ''));
 
-    await zone.play(decodedId, position);
+    await zone.play(decodedId, favoriteId);
 
     return this._audioCfgGetPlayersDetails('audio/cfg/getplayersdetails');
   }
@@ -686,9 +742,9 @@ module.exports = class MusicServer {
   async _audioPlaylist(url) {
     const [, zoneId, , , id] = url.split('/');
     const zone = this._zones[+zoneId - 1];
-    const [decodedId, position] = this._decodeId(id);
+    const [decodedId, favoriteId] = this._decodeId(id);
 
-    await zone.play(decodedId, position);
+    await zone.play(decodedId, favoriteId);
 
     return this._audioCfgGetPlayersDetails('audio/cfg/getplayersdetails');
   }
@@ -778,9 +834,9 @@ module.exports = class MusicServer {
   async _audioServicePlay(url) {
     const [, zoneId, , , , id] = url.split('/');
     const zone = this._zones[+zoneId - 1];
-    const [decodedId, position] = this._decodeId(id);
+    const [decodedId, favoriteId] = this._decodeId(id);
 
-    await zone.play(decodedId, position);
+    await zone.play(decodedId, favoriteId);
 
     return this._audioCfgGetPlayersDetails('audio/cfg/getplayersdetails');
   }

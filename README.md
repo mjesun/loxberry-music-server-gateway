@@ -231,7 +231,22 @@ between the UI and the players.
 
 - `/library`: list interface for the complete library.
 
-- `/inputs`: list interface for the external inputs.
+- `/inputs`: list interface for the external inputs. Inputs can configure their
+  icon from the Loxone UI, so a specific set of values is allowed / read from
+  those (listed by order of appearance in the UI):
+
+  - `line-in`
+  - `cd-player`
+  - `computer`
+  - `i-mac`
+  - `i-pod`
+  - `mobile`
+  - `radio`
+  - `tv`
+  - `turntable`
+
+  When the icon is updated you will get a `PUT` call for the same item, and the
+  new icon name.
 
 ## Favorite identification
 
