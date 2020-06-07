@@ -7,7 +7,7 @@ module.exports = class MusicZone {
     this._musicServer = musicServer;
     this._id = id;
 
-    this._updateId = undefined;
+    this._power = 'on';
     this._updateTime = NaN;
 
     this._favoriteId = 0;
@@ -26,7 +26,11 @@ module.exports = class MusicZone {
     this._favorites = new MusicList(musicServer, this._url() + '/favorites');
     this._queue = new MusicList(musicServer, this._url() + '/queue');
 
-    this._getState();
+    // We have to query for state regardless of the internal one, because the
+    // state could be updated from the outside.
+    setInterval(this.getState.bind(this), 5000);
+
+    this.getState();
   }
 
   async getEqualizer() {
@@ -61,6 +65,18 @@ module.exports = class MusicZone {
 
       return [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
     }
+  }
+
+  async getState() {
+    try {
+      await this._sendPlayerCommand('GET', '/state');
+    } catch (err) {
+      console.error('[ERR!] Could not get player "state": ' + err.message);
+    }
+  }
+
+  async getPower() {
+    return this._power;
   }
 
   getFavoriteId() {
@@ -369,29 +385,18 @@ module.exports = class MusicZone {
     this._pushAudioEvent();
   }
 
-  async _getState() {
-    try {
-      await this._sendPlayerCommand('GET', '/state');
-    } catch (err) {
-      console.error('[ERR!] Could not get player "state": ' + err.message);
+  async power(power) {
+    this._power = power;
+
+    if (power === 'off') {
+      await this.stop();
     }
+
+    this._pushAudioEvent();
   }
 
   _setMode(mode) {
-    if (this._player.mode !== mode) {
-      if (mode === 'play' || mode === 'buffer') {
-        if (!this._updateId) {
-          this._updateId = setInterval(this._getState.bind(this), 5000);
-        }
-      } else {
-        if (this._updateId) {
-          this._updateId = clearInterval(this._updateId);
-        }
-      }
-
-      this._player.mode = mode;
-    }
-
+    this._player.mode = mode;
     this._player.time = this.getTime();
     this._updateTime = Date.now();
 

@@ -4,14 +4,16 @@ module.exports = class List {
   constructor(musicServer, url) {
     this._musicServer = musicServer;
     this._url = url;
-    this._last = Promise.resolve();
 
-    this.reset();
-  }
-
-  reset() {
     this._total = Infinity;
     this._items = [];
+
+    this._last = Promise.resolve();
+  }
+
+  reset(start = 0) {
+    this._total = Infinity;
+    this._items.splice(start, Infinity);
   }
 
   async get(start, length) {
