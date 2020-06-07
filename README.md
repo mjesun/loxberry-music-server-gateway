@@ -281,3 +281,25 @@ You will need to make both `AI2` inputs to contain the static value `1000000`
 (one milion). You will then get the `S` value in the `AQ` output of the
 "Divide" block, and the `PPPPPP` value in the `AQ` output of the "Modulo"
 block.
+
+## Events
+
+You can inform the gateway about changes that are produced externally by
+relying on an [SSE (Server-Sent
+Events)](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events#Sending_events_from_the_server)
+interface. The gateway tries connecting to the `/events` endpoint, where you
+can push the path (URI) that you want to make the gateway refresh. For
+instance:
+
+- To make the gateway refresh the state of a player, use `/zone/:zoneId/state`.
+- To refresh the list of favorites use `/favorites/0`.
+- To refresh the list of inputs starting from the third one, use `/inputs/3`.
+
+The gateway will immediately invalidate the internal data, re-request it, then
+inform the Loxone UI about the new data. Notice how this is an add-on over the
+gateway protocol; you do not have to implement it if you don't want, nor you
+have to modify exising code if you want to support it.
+
+This endpoint also supports long-polling if you don't want to implement SSE.
+You just hold the HTTP connection until you've got an update you would like
+pushing.
