@@ -75,7 +75,7 @@ module.exports = class MusicZone {
     }
   }
 
-  async getPower() {
+  getPower() {
     return this._power;
   }
 
@@ -399,6 +399,10 @@ module.exports = class MusicZone {
     this._player.mode = mode;
     this._player.time = this.getTime();
     this._updateTime = Date.now();
+
+    if (mode !== 'stop') {
+      this.power('on');
+    }
 
     this._pushAudioEvent();
   }

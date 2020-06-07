@@ -43,7 +43,7 @@ module.exports = class MusicServer {
     this._wsConnections = new Set();
     this._miniserverIp = null;
 
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 2; i++) {
       zones[i] = new MusicZone(this, i + 1);
     }
   }
@@ -299,97 +299,107 @@ module.exports = class MusicServer {
   }
 
   _initSse() {
-    http.get(
-      this._config.gateway + '/events',
+    http
+      .get(
+        this._config.gateway + '/events',
 
-      {
-        headers: {'Accept': 'text/event-stream', 'Last-Event-ID': 0},
-      },
+        {
+          headers: {'Accept': 'text/event-stream', 'Last-Event-ID': 0},
+        },
 
-      (res) => {
-        if (res.statusCode !== 200) {
-          res.on('data', () => {});
-          return;
-        }
+        (res) => {
+          if (res.statusCode !== 200) {
+            res.on('data', () => {});
+            return;
+          }
 
-        res.on('data', (chunk) => {
-          chunk
-            .toString()
-            .split(/\n+/g)
-            .forEach((url) => {
-              switch (true) {
-                case /^(data:)\s*\/favorites\/\d+\s*$/.test(url): {
-                  const [, , position] = url.split('/');
+          res.on('data', (chunk) => {
+            chunk
+              .toString()
+              .split(/\n+/g)
+              .forEach(this._sseHandler, this);
+          });
 
-                  this._favorites.reset(+position);
-                  this._pushFavoritesChangedEvent();
+          res.on('end', () => this._initSse());
 
-                  console.log('<-- [EVTS] Reset favorites');
+          res.on('error', (err) => {
+            console.error('[ERR!] Invalid events endpoint: ' + err.message);
+          });
+        },
+      )
+      .on('error', (err) => {
+        console.error('[ERR!] Invalid events endpoint: ' + err.message);
+      });
+  }
 
-                  break;
-                }
+  _sseHandler(url) {
+    switch (true) {
+      case /^(data:)\s*\/favorites\/\d+\s*$/.test(url): {
+        const [, , position] = url.split('/');
 
-                case /^(data:)?\s*\/inputs\/\d+\s*$/.test(url): {
-                  const [, , position] = url.split('/');
+        this._favorites.reset(+position);
+        this._pushFavoritesChangedEvent();
 
-                  this._inputs.reset(+position);
-                  this._pushInputsChangedEvent();
+        console.log('<-- [EVTS] Reset favorites');
 
-                  console.log('<-- [EVTS] Reset inputs');
+        break;
+      }
 
-                  break;
-                }
+      case /^(data:)?\s*\/inputs\/\d+\s*$/.test(url): {
+        const [, , position] = url.split('/');
 
-                case /^(data:)?\s*\/library\/\d+\s*$/.test(url): {
-                  const [, , position] = url.split('/');
+        this._inputs.reset(+position);
+        this._pushInputsChangedEvent();
 
-                  this._library.reset(+position);
-                  this._pushLibraryChangedEvent();
-                  console.log('<-- [EVTS] Reset library');
+        console.log('<-- [EVTS] Reset inputs');
 
-                  break;
-                }
+        break;
+      }
 
-                case /^(data:)?\s*\/playlists\/\d+\s*$/.test(url): {
-                  const [, , position] = url.split('/');
+      case /^(data:)?\s*\/library\/\d+\s*$/.test(url): {
+        const [, , position] = url.split('/');
 
-                  this._playlists.reset(+position);
-                  this._pushPlaylistsChangedEvent();
-                  console.log('<-- [EVTS] Reset playlists');
+        this._library.reset(+position);
+        this._pushLibraryChangedEvent();
+        console.log('<-- [EVTS] Reset library');
 
-                  break;
-                }
+        break;
+      }
 
-                case /^(data:)?\s*\/zone\/\d+\/favorites\/\d+\s*$/.test(url): {
-                  const [, , zoneId, , position] = url.split('/');
-                  const zone = this._zones[+zoneId - 1];
+      case /^(data:)?\s*\/playlists\/\d+\s*$/.test(url): {
+        const [, , position] = url.split('/');
 
-                  zone.getFavoritesList().reset(+position);
-                  this._pushRoomFavChangedEvents([zone]);
+        this._playlists.reset(+position);
+        this._pushPlaylistsChangedEvent();
+        console.log('<-- [EVTS] Reset playlists');
 
-                  console.log('<-- [EVTS] Reset zone favorites');
+        break;
+      }
 
-                  break;
-                }
+      case /^(data:)?\s*\/zone\/\d+\/favorites\/\d+\s*$/.test(url): {
+        const [, , zoneId, , position] = url.split('/');
+        const zone = this._zones[+zoneId - 1];
 
-                case /^(data:)?\s*\/zone\/\d+\/state\s*$/.test(url): {
-                  const [, , zoneId] = url.split('/');
-                  const zone = this._zones[+zoneId - 1];
+        zone.getFavoritesList().reset(+position);
+        this._pushRoomFavChangedEvents([zone]);
 
-                  zone.getState();
-                  // No need to push an event, getState does it automatically.
+        console.log('<-- [EVTS] Reset zone favorites');
 
-                  console.log('<-- [EVTS] Reset zone favorites');
+        break;
+      }
 
-                  break;
-                }
-              }
-            });
-        });
+      case /^(data:)?\s*\/zone\/\d+\/state\s*$/.test(url): {
+        const [, , zoneId] = url.split('/');
+        const zone = this._zones[+zoneId - 1];
 
-        res.on('end', () => this._initSse());
-      },
-    );
+        zone.getState();
+        // No need to push an event, getState does it automatically.
+
+        console.log('<-- [EVTS] Reset zone favorites');
+
+        break;
+      }
+    }
   }
 
   _handler(method) {
