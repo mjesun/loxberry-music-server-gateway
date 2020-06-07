@@ -363,6 +363,9 @@ module.exports = class MusicServer {
       case /(?:^|\/)audio\/\d+\/roomfav\/play\/\d+(?:\/|$)/.test(url):
         return this._audioRoomFavPlay(url);
 
+      case /(?:^|\/)audio\/\d+\/roomfav\/plus(?:\/|$)/.test(url):
+        return this._audioRoomFavPlus(url);
+
       case /(?:^|\/)audio\/\d+\/roomfav\/savepath\/\d+\//.test(url):
         return this._audioRoomFavSavePath(url);
 
@@ -825,6 +828,33 @@ module.exports = class MusicServer {
     this._pushRoomFavEvents([zone]);
 
     return this._audioCfgGetPlayersDetails('audio/cfg/getplayersdetails');
+  }
+
+  async _audioRoomFavPlus(url) {
+    const [, zoneId] = url.split('/');
+    const zone = this._zones[+zoneId - 1];
+    const favoriteId = zone.getFavoriteId();
+    const favorites = await zone.getFavoritesList().get(0, 8);
+
+    let position =
+      BASE_DELTA * Math.floor(favoriteId / BASE_DELTA) === BASE_FAVORITE_ZONE
+        ? (favoriteId % BASE_FAVORITE_ZONE) + 1
+        : 0;
+
+    for (; position < 16; position++) {
+      if (favorites.items[position % 8]) {
+        position = position % 8;
+        break;
+      }
+    }
+
+    const id = favorites.items[position].id;
+
+    await zone.play(id, BASE_FAVORITE_ZONE + position);
+
+    this._pushRoomFavEvents([zone]);
+
+    return this._emptyCommand(url, []);
   }
 
   async _audioRoomFavSavePath(url) {
