@@ -312,9 +312,7 @@ module.exports = class MusicServer {
       case /(?:^|\/)audio\/cfg\/scanstatus(?:\/|$)/.test(url):
         return this._emptyCommand(url, [{scanning: 0}]);
 
-      case /(?:^|\/)audio\/\d+\/(?:alarm|bell|firealarm|wecker)(?:\/|$)/.test(
-        url,
-      ):
+      case /(?:^|\/)audio\/\d+\/(?:(fire)?alarm|bell|wecker)(?:\/|$)/.test(url):
         return this._audioAlarm(url);
 
       case /(?:^|\/)audio\/\d+\/favoriteplay(?:\/|$)/.test(url):
@@ -331,6 +329,12 @@ module.exports = class MusicServer {
 
       case /(?:^|\/)audio\/\d+\/linein/.test(url):
         return this._audioLineIn(url);
+
+      case /(?:^|\/)audio\/\d+\/off/.test(url):
+        return this._audioOff(url);
+
+      case /(?:^|\/)audio\/\d+\/on/.test(url):
+        return this._emptyCommand(url, []);
 
       case /(?:^|\/)audio\/\d+\/pause(?:\/|$)/.test(url):
         return this._audioPause(url);
@@ -713,6 +717,15 @@ module.exports = class MusicServer {
     const [decodedId, favoriteId] = this._decodeId(id.replace(/^linein/, ''));
 
     await zone.play(decodedId, favoriteId);
+
+    return this._audioCfgGetPlayersDetails('audio/cfg/getplayersdetails');
+  }
+
+  async _audioOff(url) {
+    const [, zoneId] = url.split('/');
+    const zone = this._zones[+zoneId - 1];
+
+    await zone.stop();
 
     return this._audioCfgGetPlayersDetails('audio/cfg/getplayersdetails');
   }

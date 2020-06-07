@@ -52,9 +52,11 @@ module.exports = class MusicZone {
       return equalizer;
     } catch (err) {
       if (err.type === 'BACKEND_ERROR') {
-        console.error('[ERR!] Invalid reply for "play": ' + err.message);
+        console.error('[ERR!] Invalid reply for "equalizer": ' + err.message);
       } else {
-        console.error('[ERR!] Default behavior for "play": ' + err.message);
+        console.error(
+          '[ERR!] Default behavior for "equalizer": ' + err.message,
+        );
       }
 
       return [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
@@ -200,6 +202,25 @@ module.exports = class MusicZone {
       } else {
         console.error('[ERR!] Default behavior for "resume": ' + err.message);
         this._setMode('play');
+      }
+    }
+  }
+
+  async stop() {
+    const transaction = this._transaction();
+
+    this._setMode('stop');
+
+    transaction.end();
+
+    try {
+      await this._sendPlayerCommand('POST', '/stop');
+    } catch (err) {
+      if (err.type === 'BACKEND_ERROR') {
+        console.error('[ERR!] Invalid reply for "stop": ' + err.message);
+        transaction.rollback();
+      } else {
+        console.error('[ERR!] Default behavior for "stop": ' + err.message);
       }
     }
   }
