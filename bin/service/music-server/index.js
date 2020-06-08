@@ -43,7 +43,7 @@ module.exports = class MusicServer {
     this._wsConnections = new Set();
     this._miniserverIp = null;
 
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < 20; i++) {
       zones[i] = new MusicZone(this, i + 1);
     }
   }
